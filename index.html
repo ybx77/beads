@@ -134,8 +134,8 @@
             <div class="controls-section" id="controlsSection" style="display: none;">
                 <div class="control-group">
                     <label for="gridSize">网格大小：</label>
-                    <input type="range" id="gridSize" min="1" max="50" value="20">
-                    <span id="gridSizeValue">20</span>
+                    <input type="range" id="gridSize" min="1" max="50" value="10">
+                    <span id="gridSizeValue">10</span>
                 </div>
                 <div class="control-group">
                     <label for="showNumbers">显示色号：</label>
@@ -145,6 +145,14 @@
                     <label for="showGrid">显示网格：</label>
                     <input type="checkbox" id="showGrid" checked>
                 </div>
+                <div class="control-group">
+                    <label for="bigGrid">大网格(放止看花眼)：</label>
+                    <select id="bigGrid">
+                        <option value="none">不显示</option>
+                        <option value="5">5x5</option>
+                        <option value="10">10x10</option>
+                    </select>
+                </div>
                 <button class="btn btn-primary" id="processBtn">生成拼豆图案</button>
             </div>
 
@@ -152,13 +160,13 @@
                 <div class="result-container">
                     <div class="result-image-wrapper">
                         <div class="preview-image-wrapper">
-                            <h3>参考图（无色号）</h3>
+                            <h3>参考图</h3>
                             <div class="canvas-container">
                                 <canvas id="previewCanvas"></canvas>
                             </div>
                         </div>
                         <div class="pattern-image-wrapper">
-                            <h3>拼豆图案（带色号）</h3>
+                            <h3>拼豆图案</h3>
                             <div class="canvas-container">
                                 <canvas id="resultCanvas"></canvas>
                             </div>

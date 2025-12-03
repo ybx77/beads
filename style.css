@@ -12,6 +12,12 @@ body {
     color: #333;
 }
 
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -199,6 +205,26 @@ main {
     font-weight: 600;
     color: #333;
     min-width: 100px;
+}
+
+.control-group select {
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.control-group select:hover {
+    border-color: #667eea;
+}
+
+.control-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .control-group input[type="range"] {
@@ -471,24 +497,147 @@ footer {
 }
 
 @media (max-width: 768px) {
-    .result-container {
-        grid-template-columns: 1fr;
+    body {
+        padding: 10px;
     }
     
-    .image-comparison {
-        grid-template-columns: 1fr;
+    .container {
+        border-radius: 15px;
+    }
+    
+    header {
+        padding: 25px 15px;
     }
     
     header h1 {
-        font-size: 2em;
+        font-size: 1.8em;
+    }
+    
+    .subtitle {
+        font-size: 0.95em;
+    }
+    
+    main {
+        padding: 20px 15px;
+    }
+    
+    .upload-area {
+        padding: 40px 15px;
+    }
+    
+    .upload-content p {
+        font-size: 1em;
+    }
+    
+    .config-section,
+    .controls-section {
+        padding: 20px 15px;
+    }
+    
+    .config-label {
+        font-size: 0.95em;
+        margin-bottom: 10px;
+    }
+    
+    .brand-selector,
+    .table-selector {
+        gap: 8px;
+    }
+    
+    .brand-option,
+    .table-option {
+        padding: 6px 12px;
+        font-size: 0.9em;
+    }
+    
+    .control-group {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .control-group label {
+        min-width: 80px;
+        font-size: 0.95em;
+    }
+    
+    .result-container {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .result-image-wrapper {
+        padding: 15px;
+    }
+    
+    .preview-image-wrapper h3,
+    .pattern-image-wrapper h3 {
+        font-size: 1em;
+        margin-bottom: 10px;
+    }
+    
+    .canvas-container {
+        padding: 8px;
+        max-height: 70vh;
+    }
+    
+    .color-stats {
+        padding: 15px;
+        max-height: 70vh;
+    }
+    
+    .color-stats h3 {
+        font-size: 1.1em;
+        margin-bottom: 12px;
+    }
+    
+    .total-count {
+        padding: 12px;
+    }
+    
+    .total-beads {
+        font-size: 1em;
+    }
+    
+    .total-beads strong {
+        font-size: 1.3em;
+    }
+    
+    .color-item {
+        padding: 8px;
+        gap: 10px;
+    }
+    
+    .color-swatch {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .color-name {
+        font-size: 0.95em;
+    }
+    
+    .color-count {
+        font-size: 0.85em;
     }
     
     .action-buttons {
         flex-direction: column;
+        gap: 10px;
     }
     
     .action-buttons .btn {
         max-width: 100%;
+        padding: 14px 20px;
+        font-size: 1em;
+    }
+    
+    footer {
+        padding: 15px;
+        margin-top: 20px;
+    }
+    
+    .footer-content p {
+        font-size: 0.8em;
     }
 }
 

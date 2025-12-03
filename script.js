@@ -14,6 +14,7 @@ const gridSizeSlider = document.getElementById('gridSize');
 const gridSizeValue = document.getElementById('gridSizeValue');
 const showNumbersCheckbox = document.getElementById('showNumbers');
 const showGridCheckbox = document.getElementById('showGrid');
+const bigGridSelect = document.getElementById('bigGrid');
 const processBtn = document.getElementById('processBtn');
 const originalCanvas = document.getElementById('originalCanvas');
 const previewCanvas = document.getElementById('previewCanvas');
@@ -248,13 +249,14 @@ processBtn.addEventListener('click', () => {
     const gridSize = parseInt(gridSizeSlider.value);
     const showNumbers = showNumbersCheckbox.checked;
     const showGrid = showGridCheckbox.checked;
+    const bigGrid = bigGridSelect.value;
     
-    processImage(uploadedImage, gridSize, showNumbers, showGrid);
+    processImage(uploadedImage, gridSize, showNumbers, showGrid, bigGrid);
     resultSection.style.display = 'block';
 });
 
 // 处理图片
-function processImage(img, gridSize, showNumbers, showGrid) {
+function processImage(img, gridSize, showNumbers, showGrid, bigGrid = 'none') {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -293,22 +295,53 @@ function processImage(img, gridSize, showNumbers, showGrid) {
     
     // 原图不再显示，但保留canvas用于内部处理（如果需要）
     
+    // 计算统计区域大小（根据格子大小动态调整）
+    // 边距要足够大，避免数字重叠
+    const statsMargin = Math.max(30, cellSize * 0.8); // 统计区域边距，随格子大小变化，增大避免重叠
+    // 字体大小与网格内色号数字大小一致（使用相同的计算逻辑）
+    // 这个值会在绘制色号时计算，这里先定义一个函数来计算
+    function calculateFontSize(cellSize) {
+        let fontSize;
+        if (cellSize <= 5) {
+            fontSize = Math.max(2, cellSize * 0.12);
+        } else if (cellSize <= 10) {
+            fontSize = Math.max(3, cellSize * 0.15);
+        } else if (cellSize <= 15) {
+            fontSize = Math.max(4, cellSize * 0.18);
+        } else if (cellSize <= 20) {
+            fontSize = Math.max(5, cellSize * 0.2);
+        } else if (cellSize <= 25) {
+            fontSize = Math.max(6, cellSize * 0.22);
+        } else if (cellSize <= 35) {
+            fontSize = Math.max(7, cellSize * 0.25);
+        } else {
+            fontSize = Math.max(9, cellSize * 0.28);
+        }
+        return fontSize;
+    }
+    const statsFontSize = calculateFontSize(cellSize);
+    
     // 创建高分辨率画布（用于无损放大和下载）
     const scaleFactor = 8; // 8倍分辨率确保放大后清晰
     highResCanvas = document.createElement('canvas');
-    highResCanvas.width = cols * cellSize * scaleFactor;
-    highResCanvas.height = rows * cellSize * scaleFactor;
+    highResCanvas.width = (cols * cellSize + statsMargin * 2) * scaleFactor;
+    highResCanvas.height = (rows * cellSize + statsMargin * 2) * scaleFactor;
     const highResCtx = highResCanvas.getContext('2d');
     
-    // 创建显示用的画布（带色号）
-    resultCanvas.width = cols * cellSize;
-    resultCanvas.height = rows * cellSize;
+    // 创建显示用的画布（带色号，包含行列统计）
+    resultCanvas.width = cols * cellSize + statsMargin * 2;
+    resultCanvas.height = rows * cellSize + statsMargin * 2;
     const resultCtx = resultCanvas.getContext('2d');
     
-    // 创建预览画布（无色号，仅供参考）
-    previewCanvas.width = cols * cellSize;
-    previewCanvas.height = rows * cellSize;
+    // 创建预览画布（无色号，仅供参考，也包含行列统计）
+    previewCanvas.width = cols * cellSize + statsMargin * 2;
+    previewCanvas.height = rows * cellSize + statsMargin * 2;
     const previewCtx = previewCanvas.getContext('2d');
+    
+    // 不再需要统计数组，直接使用行列索引（从1开始）
+    
+    // 计算高分辨率单元格大小（在循环外部定义，供后续使用）
+    const highResCellSize = cellSize * scaleFactor;
     
     // 设置高分辨率画布的字体和样式
     highResCtx.textAlign = 'center';
@@ -353,12 +386,11 @@ function processImage(img, gridSize, showNumbers, showGrid) {
             }
             colorStats[colorKey].count++;
             
-            // 绘制网格
-            const x = col * cellSize;
-            const y = row * cellSize;
-            const highResX = x * scaleFactor;
-            const highResY = y * scaleFactor;
-            const highResCellSize = cellSize * scaleFactor;
+            // 绘制网格（加上统计边距偏移）
+            const x = col * cellSize + statsMargin;
+            const y = row * cellSize + statsMargin;
+            const highResX = (col * cellSize + statsMargin) * scaleFactor;
+            const highResY = (row * cellSize + statsMargin) * scaleFactor;
             
             const colorStr = `rgb(${beadColor.rgb[0]}, ${beadColor.rgb[1]}, ${beadColor.rgb[2]})`;
             
@@ -374,18 +406,22 @@ function processImage(img, gridSize, showNumbers, showGrid) {
             highResCtx.fillStyle = colorStr;
             highResCtx.fillRect(highResX, highResY, highResCellSize, highResCellSize);
             
-            // 绘制网格线
+            // 绘制网格线（根据格子大小动态调整线宽，更细）
             if (showGrid) {
+                // 线宽随格子大小变化，使用更细的线
+                const lineWidth = cellSize <= 10 ? 0.3 : (cellSize <= 20 ? 0.5 : (cellSize <= 30 ? 0.7 : 0.9));
+                
                 resultCtx.strokeStyle = '#ddd';
-                resultCtx.lineWidth = 1;
+                resultCtx.lineWidth = lineWidth;
                 resultCtx.strokeRect(x, y, cellSize, cellSize);
                 
                 previewCtx.strokeStyle = '#ddd';
-                previewCtx.lineWidth = 1;
+                previewCtx.lineWidth = lineWidth;
                 previewCtx.strokeRect(x, y, cellSize, cellSize);
                 
+                // 高分辨率画布的线宽也要按比例缩放
                 highResCtx.strokeStyle = '#ddd';
-                highResCtx.lineWidth = scaleFactor;
+                highResCtx.lineWidth = lineWidth * scaleFactor;
                 highResCtx.strokeRect(highResX, highResY, highResCellSize, highResCellSize);
             }
             
@@ -457,6 +493,156 @@ function processImage(img, gridSize, showNumbers, showGrid) {
                 );
             }
         }
+    }
+    
+    // 绘制大网格（5x5或10x10）
+    if (bigGrid !== 'none' && showGrid) {
+        const bigGridSize = parseInt(bigGrid);
+        const bigGridLineWidth = cellSize <= 10 ? 1 : (cellSize <= 20 ? 1.5 : 2);
+        
+        // 绘制大网格线（显示画布，使用纯黑色）
+        resultCtx.strokeStyle = '#000000';
+        resultCtx.lineWidth = bigGridLineWidth;
+        previewCtx.strokeStyle = '#000000';
+        previewCtx.lineWidth = bigGridLineWidth;
+        
+        // 绘制垂直大网格线
+        for (let col = 0; col <= cols; col += bigGridSize) {
+            const x = statsMargin + col * cellSize;
+            resultCtx.beginPath();
+            resultCtx.moveTo(x, statsMargin);
+            resultCtx.lineTo(x, statsMargin + rows * cellSize);
+            resultCtx.stroke();
+            
+            previewCtx.beginPath();
+            previewCtx.moveTo(x, statsMargin);
+            previewCtx.lineTo(x, statsMargin + rows * cellSize);
+            previewCtx.stroke();
+        }
+        
+        // 绘制水平大网格线
+        for (let row = 0; row <= rows; row += bigGridSize) {
+            const y = statsMargin + row * cellSize;
+            resultCtx.beginPath();
+            resultCtx.moveTo(statsMargin, y);
+            resultCtx.lineTo(statsMargin + cols * cellSize, y);
+            resultCtx.stroke();
+            
+            previewCtx.beginPath();
+            previewCtx.moveTo(statsMargin, y);
+            previewCtx.lineTo(statsMargin + cols * cellSize, y);
+            previewCtx.stroke();
+        }
+        
+        // 绘制大网格线（高分辨率画布，使用纯黑色）
+        const highResBigGridLineWidth = bigGridLineWidth * scaleFactor;
+        highResCtx.strokeStyle = '#000000';
+        highResCtx.lineWidth = highResBigGridLineWidth;
+        
+        // 绘制垂直大网格线（高分辨率）
+        for (let col = 0; col <= cols; col += bigGridSize) {
+            const x = (statsMargin + col * cellSize) * scaleFactor;
+            highResCtx.beginPath();
+            highResCtx.moveTo(x, statsMargin * scaleFactor);
+            highResCtx.lineTo(x, (statsMargin + rows * cellSize) * scaleFactor);
+            highResCtx.stroke();
+        }
+        
+        // 绘制水平大网格线（高分辨率）
+        for (let row = 0; row <= rows; row += bigGridSize) {
+            const y = (statsMargin + row * cellSize) * scaleFactor;
+            highResCtx.beginPath();
+            highResCtx.moveTo(statsMargin * scaleFactor, y);
+            highResCtx.lineTo((statsMargin + cols * cellSize) * scaleFactor, y);
+            highResCtx.stroke();
+        }
+    }
+    
+    // 绘制行列统计（在拼豆图案周围）
+    // 根据字体大小调整位置，避免重叠
+    const textOffsetY = statsFontSize * 0.3; // 文字垂直偏移，避免与网格线重叠
+    
+    // 设置统计文字样式
+    resultCtx.fillStyle = '#333333';
+    resultCtx.font = `bold ${statsFontSize}px Arial`;
+    resultCtx.textAlign = 'center';
+    resultCtx.textBaseline = 'middle';
+    
+    previewCtx.fillStyle = '#333333';
+    previewCtx.font = `bold ${statsFontSize}px Arial`;
+    previewCtx.textAlign = 'center';
+    previewCtx.textBaseline = 'middle';
+    
+    // 绘制左侧行号（每行的左侧显示行号，从1开始）
+    for (let row = 0; row < rows; row++) {
+        const x = statsMargin / 2;
+        const y = statsMargin + row * cellSize + cellSize / 2 + textOffsetY;
+        resultCtx.fillText((row + 1).toString(), x, y);
+        previewCtx.fillText((row + 1).toString(), x, y);
+    }
+    
+    // 绘制右侧行号（每行的右侧显示行号，从1开始）
+    for (let row = 0; row < rows; row++) {
+        const x = statsMargin + cols * cellSize + statsMargin / 2;
+        const y = statsMargin + row * cellSize + cellSize / 2 + textOffsetY;
+        resultCtx.fillText((row + 1).toString(), x, y);
+        previewCtx.fillText((row + 1).toString(), x, y);
+    }
+    
+    // 绘制上方列号（每列的上方显示列号，从1开始）
+    const textOffsetX = 0; // 水平偏移
+    for (let col = 0; col < cols; col++) {
+        const x = statsMargin + col * cellSize + cellSize / 2 + textOffsetX;
+        const y = statsMargin / 2 - textOffsetY;
+        resultCtx.fillText((col + 1).toString(), x, y);
+        previewCtx.fillText((col + 1).toString(), x, y);
+    }
+    
+    // 绘制下方列号（每列的下方显示列号，从1开始）
+    for (let col = 0; col < cols; col++) {
+        const x = statsMargin + col * cellSize + cellSize / 2 + textOffsetX;
+        const y = statsMargin + rows * cellSize + statsMargin / 2 + textOffsetY;
+        resultCtx.fillText((col + 1).toString(), x, y);
+        previewCtx.fillText((col + 1).toString(), x, y);
+    }
+    
+    // 高分辨率画布也需要绘制统计
+    const highResStatsMargin = statsMargin * scaleFactor;
+    const highResStatsFontSize = statsFontSize * scaleFactor;
+    highResCtx.fillStyle = '#333333';
+    highResCtx.font = `bold ${highResStatsFontSize}px Arial`;
+    highResCtx.textAlign = 'center';
+    highResCtx.textBaseline = 'middle';
+    
+    // 高分辨率画布的偏移量也要按比例缩放
+    const highResTextOffsetY = textOffsetY * scaleFactor;
+    
+    // 绘制左侧行号（高分辨率，每行的左侧显示行号，从1开始）
+    for (let row = 0; row < rows; row++) {
+        const x = highResStatsMargin / 2;
+        const y = highResStatsMargin + row * highResCellSize + highResCellSize / 2 + highResTextOffsetY;
+        highResCtx.fillText((row + 1).toString(), x, y);
+    }
+    
+    // 绘制右侧行号（高分辨率，每行的右侧显示行号，从1开始）
+    for (let row = 0; row < rows; row++) {
+        const x = highResStatsMargin + cols * highResCellSize + highResStatsMargin / 2;
+        const y = highResStatsMargin + row * highResCellSize + highResCellSize / 2 + highResTextOffsetY;
+        highResCtx.fillText((row + 1).toString(), x, y);
+    }
+    
+    // 绘制上方列号（高分辨率，每列的上方显示列号，从1开始）
+    for (let col = 0; col < cols; col++) {
+        const x = highResStatsMargin + col * highResCellSize + highResCellSize / 2;
+        const y = highResStatsMargin / 2 - highResTextOffsetY;
+        highResCtx.fillText((col + 1).toString(), x, y);
+    }
+    
+    // 绘制下方列号（高分辨率，每列的下方显示列号，从1开始）
+    for (let col = 0; col < cols; col++) {
+        const x = highResStatsMargin + col * highResCellSize + highResCellSize / 2;
+        const y = highResStatsMargin + rows * highResCellSize + highResStatsMargin / 2 + highResTextOffsetY;
+        highResCtx.fillText((col + 1).toString(), x, y);
     }
     
     // 保存canvas数据用于下载
@@ -637,8 +823,8 @@ function generateDownloadImage() {
 
 function calculateStatsInfo() {
     const sortedColors = Object.values(colorStats).sort((a, b) => b.count - a.count);
-    const itemHeight = 35;
-    const headerHeight = 60;
+    const itemHeight = 42; // 增大间距
+    const headerHeight = 95; // 增大标题区域高度
     const padding = 20;
     const height = headerHeight + sortedColors.length * itemHeight + padding;
     return {
@@ -648,16 +834,16 @@ function calculateStatsInfo() {
 }
 
 function drawStatsOnCanvas(ctx, x, y, width, statsInfo) {
-    const padding = 15;
+    const padding = 20;
     const startX = x + padding;
     let currentY = y + padding;
     
-    // 绘制标题
+    // 绘制标题（增大字体）
     ctx.fillStyle = '#333333';
-    ctx.font = 'bold 22px Arial';
+    ctx.font = 'bold 28px Arial';
     ctx.textAlign = 'left';
     ctx.fillText('颜色统计', startX, currentY);
-    currentY += 35;
+    currentY += 45;
     
     // 计算总数量
     let totalBeads = 0;
@@ -665,45 +851,45 @@ function drawStatsOnCanvas(ctx, x, y, width, statsInfo) {
         totalBeads += item.count;
     });
     
-    // 绘制总数量
+    // 绘制总数量（增大字体）
     ctx.fillStyle = '#667eea';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 24px Arial';
     ctx.fillText(`总计：${totalBeads} 颗`, startX, currentY);
-    currentY += 40;
+    currentY += 50;
     
-    // 绘制颜色列表
+    // 绘制颜色列表（增大字体和间距）
     const sortedColors = statsInfo.colors;
-    const itemHeight = 32;
-    const swatchSize = 24;
+    const itemHeight = 42;
+    const swatchSize = 32;
     const maxItems = Math.min(sortedColors.length, Math.floor((statsInfo.height - currentY + y) / itemHeight));
     
     sortedColors.slice(0, maxItems).forEach((item) => {
-        // 绘制色块
+        // 绘制色块（增大）
         ctx.fillStyle = `rgb(${item.rgb[0]}, ${item.rgb[1]}, ${item.rgb[2]})`;
         ctx.fillRect(startX, currentY, swatchSize, swatchSize);
         ctx.strokeStyle = '#ddd';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.strokeRect(startX, currentY, swatchSize, swatchSize);
         
-        // 绘制色号（不显示品牌）
+        // 绘制色号（不显示品牌，增大字体）
         ctx.fillStyle = '#333333';
-        ctx.font = '14px Arial';
+        ctx.font = 'bold 18px Arial';
         ctx.textAlign = 'left';
-        ctx.fillText(item.brandCode, startX + swatchSize + 8, currentY + 18);
+        ctx.fillText(item.brandCode, startX + swatchSize + 12, currentY + 22);
         
-        // 绘制数量
+        // 绘制数量（增大字体）
         ctx.fillStyle = '#666666';
-        ctx.font = '13px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText(`${item.count}颗`, startX + width - padding * 2, currentY + 18);
+        ctx.fillText(`${item.count}颗`, startX + width - padding * 2, currentY + 22);
         
         currentY += itemHeight;
     });
     
-    // 如果颜色太多，显示省略提示
+    // 如果颜色太多，显示省略提示（增大字体）
     if (sortedColors.length > maxItems) {
         ctx.fillStyle = '#999999';
-        ctx.font = '12px Arial';
+        ctx.font = '14px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(`...还有${sortedColors.length - maxItems}种颜色`, startX, currentY + 5);
     }
