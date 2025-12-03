@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拼豆色号生成器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 拼豆色号生成器</h1>
+            <p class="subtitle">上传图片，自动生成拼豆图案和色号标识</p>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                    <div class="upload-content">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>点击或拖拽图片到这里上传</p>
+                        <span class="upload-hint">支持 JPG、PNG、GIF 格式</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section" id="configSection" style="display: none;">
+                <h2>配置选项</h2>
+                
+                <div class="config-group">
+                    <label class="config-label">选择品牌：</label>
+                    <div class="brand-selector">
+                        <label class="brand-option">
+                            <input type="radio" name="brand" value="MARD" checked>
+                            <span>MARD</span>
+                        </label>
+                        <label class="brand-option">
+                            <input type="radio" name="brand" value="COCO">
+                            <span>COCO</span>
+                        </label>
+                        <label class="brand-option">
+                            <input type="radio" name="brand" value="漫漫">
+                            <span>漫漫</span>
+                        </label>
+                        <label class="brand-option">
+                            <input type="radio" name="brand" value="盼盼">
+                            <span>盼盼</span>
+                        </label>
+                        <label class="brand-option">
+                            <input type="radio" name="brand" value="咪小窝">
+                            <span>咪小窝</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <label class="config-label">基础色号表：</label>
+                    <div class="table-selector">
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="A" checked>
+                            <span>A</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="B" checked>
+                            <span>B</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="C" checked>
+                            <span>C</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="D" checked>
+                            <span>D</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="E" checked>
+                            <span>E</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="F" checked>
+                            <span>F</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="G" checked>
+                            <span>G</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="H" checked>
+                            <span>H</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="baseTable" value="M" checked>
+                            <span>M</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <label class="config-label">高级色号选项：</label>
+                    <div class="table-selector">
+                        <label class="table-option">
+                            <input type="checkbox" name="advancedTable" value="P">
+                            <span>P (珠光)</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="advancedTable" value="Q">
+                            <span>Q (温变)</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="advancedTable" value="R">
+                            <span>R (透明果冻水晶)</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="advancedTable" value="T">
+                            <span>T (透明)</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="advancedTable" value="Y">
+                            <span>Y (夜光)</span>
+                        </label>
+                        <label class="table-option">
+                            <input type="checkbox" name="advancedTable" value="ZG">
+                            <span>ZG (光变)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-section" id="controlsSection" style="display: none;">
+                <div class="control-group">
+                    <label for="gridSize">网格大小：</label>
+                    <input type="range" id="gridSize" min="1" max="50" value="20">
+                    <span id="gridSizeValue">20</span>
+                </div>
+                <div class="control-group">
+                    <label for="showNumbers">显示色号：</label>
+                    <input type="checkbox" id="showNumbers" checked>
+                </div>
+                <div class="control-group">
+                    <label for="showGrid">显示网格：</label>
+                    <input type="checkbox" id="showGrid" checked>
+                </div>
+                <button class="btn btn-primary" id="processBtn">生成拼豆图案</button>
+            </div>
+
+            <div class="result-section" id="resultSection" style="display: none;">
+                <div class="result-container">
+                    <div class="result-image-wrapper">
+                        <div class="preview-image-wrapper">
+                            <h3>参考图（无色号）</h3>
+                            <div class="canvas-container">
+                                <canvas id="previewCanvas"></canvas>
+                            </div>
+                        </div>
+                        <div class="pattern-image-wrapper">
+                            <h3>拼豆图案（带色号）</h3>
+                            <div class="canvas-container">
+                                <canvas id="resultCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="color-stats" id="colorStats">
+                        <h3>颜色统计</h3>
+                        <div class="total-count" id="totalCount"></div>
+                        <div id="colorList"></div>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-download" id="downloadBtn">下载图案</button>
+                    <button class="btn btn-secondary" id="resetBtn">重新开始</button>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <div class="footer-content">
+                <p>© 2025 朵小念工作室</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
