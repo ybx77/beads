@@ -386,6 +386,28 @@
     </div>
 
     <script src="script.js"></script>
+    <!-- Vercel Analytics -->
+    <script>
+        // 初始化 Vercel Analytics
+        // 对于部署在 Vercel 上的项目，脚本会自动从 /_vercel/insights/script.js 加载
+        (function() {
+            if (typeof window !== 'undefined') {
+                // 初始化队列
+                window.va = window.va || function() {
+                    (window.vaq = window.vaq || []).push(arguments);
+                };
+                
+                // 注入 Analytics 脚本
+                const script = document.createElement('script');
+                script.src = '/_vercel/insights/script.js';
+                script.defer = true;
+                script.onerror = function() {
+                    console.log('[Vercel Analytics] 请确保：1) 项目已部署到 Vercel 2) 在 Vercel 控制台启用了 Web Analytics');
+                };
+                document.head.appendChild(script);
+            }
+        })();
+    </script>
 </body>
 </html>
 
