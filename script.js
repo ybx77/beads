@@ -12,6 +12,8 @@ const controlsSection = document.getElementById('controlsSection');
 const resultSection = document.getElementById('resultSection');
 const gridSizeSlider = document.getElementById('gridSize');
 const gridSizeValue = document.getElementById('gridSizeValue');
+const colorMergeSlider = document.getElementById('colorMerge');
+const colorMergeValue = document.getElementById('colorMergeValue');
 const showNumbersCheckbox = document.getElementById('showNumbers');
 const showGridCheckbox = document.getElementById('showGrid');
 const bigGridSelect = document.getElementById('bigGrid');
@@ -113,9 +115,9 @@ function colorDistance(rgb1, rgb2) {
     return Math.sqrt(r * r + g * g + b * b);
 }
 
-// 找到最接近的拼豆颜色
-function findClosestBeadColor(r, g, b) {
-    if (availableColors.length === 0) {
+// 找到最接近的拼豆颜色（从指定颜色库）
+function findClosestBeadColorFromLibrary(r, g, b, colorLibrary) {
+    if (colorLibrary.length === 0) {
         // 如果没有可用颜色，返回默认颜色
         return {
             rgb: [r, g, b],
@@ -125,9 +127,9 @@ function findClosestBeadColor(r, g, b) {
     }
     
     let minDistance = Infinity;
-    let closestColor = availableColors[0];
+    let closestColor = colorLibrary[0];
     
-    for (const color of availableColors) {
+    for (const color of colorLibrary) {
         const distance = colorDistance([r, g, b], color.rgb);
         if (distance < minDistance) {
             minDistance = distance;
@@ -136,6 +138,83 @@ function findClosestBeadColor(r, g, b) {
     }
     
     return closestColor;
+}
+
+// 找到最接近的拼豆颜色（从默认颜色库）
+function findClosestBeadColor(r, g, b) {
+    return findClosestBeadColorFromLibrary(r, g, b, availableColors);
+}
+
+// 合并拼豆颜色库中相似的颜色
+function mergeColorLibrary(colors, threshold) {
+    if (threshold === 0 || colors.length === 0) {
+        return colors;
+    }
+    
+    const merged = [];
+    const used = new Set();
+    
+    // 按颜色在RGB空间中的位置排序，相近的颜色会在一起
+    const sortedColors = [...colors].sort((a, b) => {
+        const aSum = a.rgb[0] + a.rgb[1] + a.rgb[2];
+        const bSum = b.rgb[0] + b.rgb[1] + b.rgb[2];
+        return aSum - bSum;
+    });
+    
+    for (let i = 0; i < sortedColors.length; i++) {
+        if (used.has(i)) continue;
+        
+        const currentColor = sortedColors[i];
+        const group = [currentColor];
+        used.add(i);
+        
+        // 查找相似的颜色
+        for (let j = i + 1; j < sortedColors.length; j++) {
+            if (used.has(j)) continue;
+            
+            const otherColor = sortedColors[j];
+            const distance = colorDistance(currentColor.rgb, otherColor.rgb);
+            
+            // 如果颜色距离小于阈值，合并它们
+            if (distance <= threshold) {
+                group.push(otherColor);
+                used.add(j);
+            }
+        }
+        
+        // 如果只有一个颜色，直接使用
+        if (group.length === 1) {
+            merged.push(currentColor);
+        } else {
+            // 多个颜色合并：选择使用频率最高的，或者选择最接近平均值的
+            // 计算平均RGB值
+            let avgR = 0, avgG = 0, avgB = 0;
+            group.forEach(color => {
+                avgR += color.rgb[0];
+                avgG += color.rgb[1];
+                avgB += color.rgb[2];
+            });
+            avgR = Math.floor(avgR / group.length);
+            avgG = Math.floor(avgG / group.length);
+            avgB = Math.floor(avgB / group.length);
+            
+            // 找到最接近平均值的颜色作为代表
+            let bestColor = group[0];
+            let minDist = colorDistance([avgR, avgG, avgB], bestColor.rgb);
+            
+            for (const color of group) {
+                const dist = colorDistance([avgR, avgG, avgB], color.rgb);
+                if (dist < minDist) {
+                    minDist = dist;
+                    bestColor = color;
+                }
+            }
+            
+            merged.push(bestColor);
+        }
+    }
+    
+    return merged;
 }
 
 // 上传区域点击事件
@@ -171,6 +250,7 @@ uploadArea.addEventListener('drop', (e) => {
 });
 
 // 处理文件
+const infoSection = document.getElementById('infoSection');
 function handleFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -180,6 +260,10 @@ function handleFile(file) {
             configSection.style.display = 'block';
             controlsSection.style.display = 'block';
             resultSection.style.display = 'none';
+            // 隐藏信息部分
+            if (infoSection) {
+                infoSection.style.display = 'none';
+            }
         };
         img.src = e.target.result;
     };
@@ -227,6 +311,11 @@ gridSizeSlider.addEventListener('input', (e) => {
     gridSizeValue.textContent = e.target.value;
 });
 
+// 颜色合并滑块事件
+colorMergeSlider.addEventListener('input', (e) => {
+    colorMergeValue.textContent = e.target.value;
+});
+
 // 处理按钮点击事件
 processBtn.addEventListener('click', () => {
     if (!uploadedImage) return;
@@ -247,16 +336,17 @@ processBtn.addEventListener('click', () => {
     }
     
     const gridSize = parseInt(gridSizeSlider.value);
+    const colorMerge = parseInt(colorMergeSlider.value);
     const showNumbers = showNumbersCheckbox.checked;
     const showGrid = showGridCheckbox.checked;
     const bigGrid = bigGridSelect.value;
     
-    processImage(uploadedImage, gridSize, showNumbers, showGrid, bigGrid);
+    processImage(uploadedImage, gridSize, colorMerge, showNumbers, showGrid, bigGrid);
     resultSection.style.display = 'block';
 });
 
 // 处理图片
-function processImage(img, gridSize, showNumbers, showGrid, bigGrid = 'none') {
+function processImage(img, gridSize, colorMerge, showNumbers, showGrid, bigGrid = 'none') {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -293,11 +383,54 @@ function processImage(img, gridSize, showNumbers, showGrid, bigGrid = 'none') {
     const cols = Math.floor(width / cellSize);
     const rows = Math.floor(height / cellSize);
     
+    // 如果启用了颜色合并，先合并拼豆颜色库中相似的颜色
+    let mergedColorLibrary = availableColors;
+    if (colorMerge > 0) {
+        // 将颜色合并阈值转换为颜色距离阈值（0-100 映射到 0-50 的颜色距离）
+        const mergeThreshold = (colorMerge / 100) * 50;
+        
+        // 合并拼豆颜色库中相似的颜色
+        mergedColorLibrary = mergeColorLibrary(availableColors, mergeThreshold);
+        console.log(`颜色合并：从 ${availableColors.length} 种颜色合并到 ${mergedColorLibrary.length} 种颜色`);
+    }
+    
+    // 先收集所有网格的原始RGB颜色
+    const gridColors = [];
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            // 计算网格区域的平均颜色
+            let r = 0, g = 0, b = 0, count = 0;
+            
+            for (let y = row * cellSize; y < (row + 1) * cellSize && y < height; y++) {
+                for (let x = col * cellSize; x < (col + 1) * cellSize && x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    r += data[index];
+                    g += data[index + 1];
+                    b += data[index + 2];
+                    count++;
+                }
+            }
+            
+            r = Math.floor(r / count);
+            g = Math.floor(g / count);
+            b = Math.floor(b / count);
+            
+            // 使用合并后的颜色库找到最接近的拼豆颜色
+            const beadColor = findClosestBeadColorFromLibrary(r, g, b, mergedColorLibrary);
+            gridColors.push({
+                row,
+                col,
+                rgb: [r, g, b],
+                beadColor: beadColor
+            });
+        }
+    }
+    
     // 原图不再显示，但保留canvas用于内部处理（如果需要）
     
     // 计算统计区域大小（根据格子大小动态调整）
-    // 边距要足够大，避免数字重叠
-    const statsMargin = Math.max(30, cellSize * 0.8); // 统计区域边距，随格子大小变化，增大避免重叠
+    // 边距要足够大，避免数字重叠，但不要太远
+    const statsMargin = Math.max(20, Math.min(35, cellSize * 0.6)); // 统计区域边距，随格子大小动态调整，更靠近边缘
     // 字体大小与网格内色号数字大小一致（使用相同的计算逻辑）
     // 这个值会在绘制色号时计算，这里先定义一个函数来计算
     function calculateFontSize(cellSize) {
@@ -353,27 +486,12 @@ function processImage(img, gridSize, showNumbers, showGrid, bigGrid = 'none') {
     
     // 预览画布不需要文字样式
     
+    // 绘制网格
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-            // 计算网格区域的平均颜色
-            let r = 0, g = 0, b = 0, count = 0;
-            
-            for (let y = row * cellSize; y < (row + 1) * cellSize && y < height; y++) {
-                for (let x = col * cellSize; x < (col + 1) * cellSize && x < width; x++) {
-                    const index = (y * width + x) * 4;
-                    r += data[index];
-                    g += data[index + 1];
-                    b += data[index + 2];
-                    count++;
-                }
-            }
-            
-            r = Math.floor(r / count);
-            g = Math.floor(g / count);
-            b = Math.floor(b / count);
-            
-            // 找到最接近的拼豆颜色
-            const beadColor = findClosestBeadColor(r, g, b);
+            // 获取已处理的颜色（如果进行了颜色合并）
+            const gridColor = gridColors[row * cols + col];
+            const beadColor = gridColor.beadColor;
             
             // 统计颜色（使用品牌色号作为key）
             const colorKey = beadColor.brandCode;
@@ -559,49 +677,51 @@ function processImage(img, gridSize, showNumbers, showGrid, bigGrid = 'none') {
     }
     
     // 绘制行列统计（在拼豆图案周围）
-    // 根据字体大小调整位置，避免重叠
-    const textOffsetY = statsFontSize * 0.3; // 文字垂直偏移，避免与网格线重叠
+    // 根据字体大小调整位置，让数字更靠近图案边缘
+    const textOffsetY = 0; // 文字垂直偏移，设为0让数字更靠近
+    
+    // 计算数字位置，更靠近图案边缘
+    const numberOffset = Math.max(8, statsFontSize * 0.8); // 数字距离图案边缘的距离，更小更靠近
     
     // 设置统计文字样式
-    resultCtx.fillStyle = '#333333';
+    resultCtx.fillStyle = '#1f2937';
     resultCtx.font = `bold ${statsFontSize}px Arial`;
     resultCtx.textAlign = 'center';
     resultCtx.textBaseline = 'middle';
     
-    previewCtx.fillStyle = '#333333';
+    previewCtx.fillStyle = '#1f2937';
     previewCtx.font = `bold ${statsFontSize}px Arial`;
     previewCtx.textAlign = 'center';
     previewCtx.textBaseline = 'middle';
     
     // 绘制左侧行号（每行的左侧显示行号，从1开始）
     for (let row = 0; row < rows; row++) {
-        const x = statsMargin / 2;
-        const y = statsMargin + row * cellSize + cellSize / 2 + textOffsetY;
+        const x = numberOffset;
+        const y = statsMargin + row * cellSize + cellSize / 2;
         resultCtx.fillText((row + 1).toString(), x, y);
         previewCtx.fillText((row + 1).toString(), x, y);
     }
     
     // 绘制右侧行号（每行的右侧显示行号，从1开始）
     for (let row = 0; row < rows; row++) {
-        const x = statsMargin + cols * cellSize + statsMargin / 2;
-        const y = statsMargin + row * cellSize + cellSize / 2 + textOffsetY;
+        const x = statsMargin + cols * cellSize + (statsMargin - numberOffset);
+        const y = statsMargin + row * cellSize + cellSize / 2;
         resultCtx.fillText((row + 1).toString(), x, y);
         previewCtx.fillText((row + 1).toString(), x, y);
     }
     
     // 绘制上方列号（每列的上方显示列号，从1开始）
-    const textOffsetX = 0; // 水平偏移
     for (let col = 0; col < cols; col++) {
-        const x = statsMargin + col * cellSize + cellSize / 2 + textOffsetX;
-        const y = statsMargin / 2 - textOffsetY;
+        const x = statsMargin + col * cellSize + cellSize / 2;
+        const y = numberOffset;
         resultCtx.fillText((col + 1).toString(), x, y);
         previewCtx.fillText((col + 1).toString(), x, y);
     }
     
     // 绘制下方列号（每列的下方显示列号，从1开始）
     for (let col = 0; col < cols; col++) {
-        const x = statsMargin + col * cellSize + cellSize / 2 + textOffsetX;
-        const y = statsMargin + rows * cellSize + statsMargin / 2 + textOffsetY;
+        const x = statsMargin + col * cellSize + cellSize / 2;
+        const y = statsMargin + rows * cellSize + (statsMargin - numberOffset);
         resultCtx.fillText((col + 1).toString(), x, y);
         previewCtx.fillText((col + 1).toString(), x, y);
     }
@@ -609,39 +729,37 @@ function processImage(img, gridSize, showNumbers, showGrid, bigGrid = 'none') {
     // 高分辨率画布也需要绘制统计
     const highResStatsMargin = statsMargin * scaleFactor;
     const highResStatsFontSize = statsFontSize * scaleFactor;
-    highResCtx.fillStyle = '#333333';
+    const highResNumberOffset = numberOffset * scaleFactor;
+    highResCtx.fillStyle = '#1f2937';
     highResCtx.font = `bold ${highResStatsFontSize}px Arial`;
     highResCtx.textAlign = 'center';
     highResCtx.textBaseline = 'middle';
     
-    // 高分辨率画布的偏移量也要按比例缩放
-    const highResTextOffsetY = textOffsetY * scaleFactor;
-    
     // 绘制左侧行号（高分辨率，每行的左侧显示行号，从1开始）
     for (let row = 0; row < rows; row++) {
-        const x = highResStatsMargin / 2;
-        const y = highResStatsMargin + row * highResCellSize + highResCellSize / 2 + highResTextOffsetY;
+        const x = highResNumberOffset;
+        const y = highResStatsMargin + row * highResCellSize + highResCellSize / 2;
         highResCtx.fillText((row + 1).toString(), x, y);
     }
     
     // 绘制右侧行号（高分辨率，每行的右侧显示行号，从1开始）
     for (let row = 0; row < rows; row++) {
-        const x = highResStatsMargin + cols * highResCellSize + highResStatsMargin / 2;
-        const y = highResStatsMargin + row * highResCellSize + highResCellSize / 2 + highResTextOffsetY;
+        const x = highResStatsMargin + cols * highResCellSize + (highResStatsMargin - highResNumberOffset);
+        const y = highResStatsMargin + row * highResCellSize + highResCellSize / 2;
         highResCtx.fillText((row + 1).toString(), x, y);
     }
     
     // 绘制上方列号（高分辨率，每列的上方显示列号，从1开始）
     for (let col = 0; col < cols; col++) {
         const x = highResStatsMargin + col * highResCellSize + highResCellSize / 2;
-        const y = highResStatsMargin / 2 - highResTextOffsetY;
+        const y = highResNumberOffset;
         highResCtx.fillText((col + 1).toString(), x, y);
     }
     
     // 绘制下方列号（高分辨率，每列的下方显示列号，从1开始）
     for (let col = 0; col < cols; col++) {
         const x = highResStatsMargin + col * highResCellSize + highResCellSize / 2;
-        const y = highResStatsMargin + rows * highResCellSize + highResStatsMargin / 2 + highResTextOffsetY;
+        const y = highResStatsMargin + rows * highResCellSize + (highResStatsMargin - highResNumberOffset);
         highResCtx.fillText((col + 1).toString(), x, y);
     }
     
@@ -679,8 +797,16 @@ function displayColorStats() {
         totalBeads += item.count;
     });
     
-    // 显示总数量
-    totalCount.innerHTML = `<div class="total-beads">总计：<strong>${totalBeads}</strong> 颗豆子</div>`;
+    // 计算颜色种类数量
+    const colorTypes = Object.keys(colorStats).length;
+    
+    // 显示总数量和颜色种类
+    totalCount.innerHTML = `
+        <div class="total-beads">
+            <div class="total-item">总计：<strong>${totalBeads}</strong> 颗豆子</div>
+            <div class="total-item">使用：<strong>${colorTypes}</strong> 种颜色</div>
+        </div>
+    `;
     
     // 按数量排序
     const sortedColors = Object.values(colorStats).sort((a, b) => b.count - a.count);
@@ -733,6 +859,11 @@ function generateDownloadImage() {
         return;
     }
     
+    if (Object.keys(colorStats).length === 0) {
+        alert('没有颜色统计数据，请重新生成图案');
+        return;
+    }
+    
     // 创建一个大画布来包含所有内容（使用高分辨率）
     const downloadCanvas = document.createElement('canvas');
     const ctx = downloadCanvas.getContext('2d');
@@ -759,14 +890,52 @@ function generateDownloadImage() {
         return;
     }
     
-    // 计算统计区域尺寸
-    const statsInfo = calculateStatsInfo();
-    const statsWidth = 350;
-    const statsHeight = statsInfo.height;
+    // 判断是横图还是竖图
+    const isLandscape = resultWidth > resultHeight;
     
-    // 计算总高度和宽度，优化布局（使用实际图片高度）
-    const totalHeight = titleHeight + labelHeight + Math.max(resultHeight, statsHeight) + padding * 2;
-    const totalWidth = resultWidth + imageSpacing + statsWidth + padding * 2;
+    // 计算统计区域尺寸（加大显示）
+    // 横图时需要根据实际宽度重新计算高度
+    let statsInfo;
+    let statsWidth, statsHeight;
+    if (isLandscape) {
+        statsWidth = resultWidth;
+        // 重新计算横图时的实际高度
+        const itemWidth = 180;
+        const itemHeight = 70;
+        const rowSpacing = 20;
+        const padding = 30;
+        const headerHeight = 120;
+        const itemsPerRow = Math.floor((statsWidth - padding * 2) / itemWidth);
+        const rows = Math.ceil(Object.keys(colorStats).length / itemsPerRow);
+        statsHeight = headerHeight + rows * (itemHeight + rowSpacing) + padding;
+        statsInfo = {
+            height: statsHeight,
+            colors: Object.values(colorStats).sort((a, b) => b.count - a.count)
+        };
+    } else {
+        statsInfo = calculateStatsInfo(isLandscape);
+        statsWidth = 550; // 竖图时统计在右侧，宽度更大
+        statsHeight = statsInfo.height;
+    }
+    
+    // 根据横竖图计算总尺寸
+    let totalWidth, totalHeight;
+    if (isLandscape) {
+        // 横图：统计在下方
+        totalWidth = resultWidth + padding * 2;
+        totalHeight = titleHeight + labelHeight + resultHeight + imageSpacing + statsHeight + padding * 2;
+    } else {
+        // 竖图：统计在右侧
+        totalWidth = resultWidth + imageSpacing + statsWidth + padding * 2;
+        totalHeight = titleHeight + labelHeight + Math.max(resultHeight, statsHeight) + padding * 2;
+    }
+    
+    // 检查canvas尺寸是否过大（某些浏览器限制）
+    const maxCanvasSize = 16384; // 大多数浏览器的最大canvas尺寸
+    if (totalWidth > maxCanvasSize || totalHeight > maxCanvasSize) {
+        alert('图片尺寸过大，无法下载。请减小网格大小或图片尺寸。');
+        return;
+    }
     
     downloadCanvas.width = totalWidth;
     downloadCanvas.height = totalHeight;
@@ -777,7 +946,7 @@ function generateDownloadImage() {
     
     // 绘制标题
     ctx.fillStyle = '#333333';
-    ctx.font = 'bold 32px Arial';
+    ctx.font = 'bold 36px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('拼豆图案生成结果', downloadCanvas.width / 2, titleHeight);
     
@@ -785,7 +954,7 @@ function generateDownloadImage() {
     const resultX = padding;
     const resultY = titleHeight + labelHeight;
     ctx.fillStyle = '#000000';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'left';
     ctx.fillText('拼豆图案', resultX, resultY - 5);
     
@@ -795,103 +964,224 @@ function generateDownloadImage() {
     ctx.mozImageSmoothingEnabled = false;
     ctx.msImageSmoothingEnabled = false;
     
-    if (highResCanvas) {
-        // 使用高分辨率canvas，按原始尺寸绘制（不缩放）
-        ctx.drawImage(highResCanvas, resultX, resultY);
-    } else {
-        ctx.drawImage(resultCanvas, resultX, resultY, resultWidth, resultHeight);
+    try {
+        if (highResCanvas && highResCanvas.width > 0 && highResCanvas.height > 0) {
+            // 使用高分辨率canvas，按原始尺寸绘制（不缩放）
+            ctx.drawImage(highResCanvas, resultX, resultY);
+        } else {
+            // 使用普通canvas
+            ctx.drawImage(resultCanvas, resultX, resultY, resultWidth, resultHeight);
+        }
+    } catch (e) {
+        console.error('绘制图案失败:', e);
+        alert('绘制图案失败，请重新生成');
+        return;
     }
     
-    // 绘制色号统计（紧贴右侧，减少空白）
-    const statsX = resultX + resultWidth + imageSpacing;
-    const statsY = titleHeight + labelHeight;
-    drawStatsOnCanvas(ctx, statsX, statsY, statsWidth, statsInfo);
+    // 根据横竖图决定统计位置
+    let statsX, statsY;
+    if (isLandscape) {
+        // 横图：统计在下方
+        statsX = resultX;
+        statsY = resultY + resultHeight + imageSpacing;
+    } else {
+        // 竖图：统计在右侧
+        statsX = resultX + resultWidth + imageSpacing;
+        statsY = resultY;
+    }
+    
+    try {
+        drawStatsOnCanvas(ctx, statsX, statsY, statsWidth, statsInfo, isLandscape);
+    } catch (e) {
+        console.error('绘制统计失败:', e);
+        alert('绘制颜色统计失败：' + e.message);
+        return;
+    }
     
     // 下载
     try {
+        // 检查canvas是否有内容
+        if (downloadCanvas.width === 0 || downloadCanvas.height === 0) {
+            alert('图片数据不完整，请重新生成');
+            return;
+        }
+        
+        // 尝试生成图片数据
+        let dataURL;
+        try {
+            dataURL = downloadCanvas.toDataURL('image/png', 1.0);
+        } catch (e) {
+            console.error('生成图片数据失败:', e);
+            // 如果失败，尝试降低质量
+            try {
+                dataURL = downloadCanvas.toDataURL('image/png', 0.9);
+            } catch (e2) {
+                alert('图片尺寸过大，无法生成下载文件。请减小网格大小。');
+                return;
+            }
+        }
+        
+        // 检查数据URL是否有效
+        if (!dataURL || dataURL === 'data:,') {
+            alert('图片数据生成失败，请重新生成');
+            return;
+        }
+        
+        // 创建下载链接
         const link = document.createElement('a');
         link.download = '拼豆图案完整版.png';
-        link.href = downloadCanvas.toDataURL('image/png', 1.0);
+        link.href = dataURL;
+        
+        // 添加到DOM并触发下载
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        
+        // 延迟移除，确保下载开始
+        setTimeout(() => {
+            document.body.removeChild(link);
+        }, 100);
     } catch (error) {
         console.error('下载错误:', error);
-        alert('下载失败，请重试');
+        alert('下载失败：' + (error.message || '未知错误') + '。请检查图片尺寸是否过大。');
     }
 }
 
-function calculateStatsInfo() {
+function calculateStatsInfo(isLandscape = false) {
     const sortedColors = Object.values(colorStats).sort((a, b) => b.count - a.count);
-    const itemHeight = 42; // 增大间距
-    const headerHeight = 95; // 增大标题区域高度
-    const padding = 20;
-    const height = headerHeight + sortedColors.length * itemHeight + padding;
+    const headerHeight = 120; // 增大标题区域高度
+    const padding = 30;
+    
+    let height;
+    if (isLandscape) {
+        // 横图：计算需要多少行（横向排列）
+        const itemWidth = 180;
+        const itemHeight = 70;
+        const rowSpacing = 20;
+        // 需要知道宽度才能计算，这里先估算，实际会在drawStatsOnCanvas中计算
+        const estimatedWidth = 1200; // 估算宽度
+        const itemsPerRow = Math.floor((estimatedWidth - padding * 2) / itemWidth);
+        const rows = Math.ceil(sortedColors.length / itemsPerRow);
+        height = headerHeight + rows * (itemHeight + rowSpacing) + padding;
+    } else {
+        // 竖图：纵向排列
+        const itemHeight = 55;
+        height = headerHeight + sortedColors.length * itemHeight + padding;
+    }
+    
     return {
         height: height,
         colors: sortedColors
     };
 }
 
-function drawStatsOnCanvas(ctx, x, y, width, statsInfo) {
-    const padding = 20;
+function drawStatsOnCanvas(ctx, x, y, width, statsInfo, isLandscape = false) {
+    const padding = 30;
     const startX = x + padding;
     let currentY = y + padding;
     
-    // 绘制标题（增大字体）
+    // 绘制标题（加大字体）
     ctx.fillStyle = '#333333';
-    ctx.font = 'bold 28px Arial';
+    ctx.font = 'bold 36px Arial';
     ctx.textAlign = 'left';
     ctx.fillText('颜色统计', startX, currentY);
-    currentY += 45;
+    currentY += 55;
     
-    // 计算总数量
+    // 计算总数量和颜色种类
     let totalBeads = 0;
     Object.values(colorStats).forEach(item => {
         totalBeads += item.count;
     });
+    const colorTypes = Object.keys(colorStats).length;
     
-    // 绘制总数量（增大字体）
+    // 绘制总数量和颜色种类（加大字体）
     ctx.fillStyle = '#667eea';
-    ctx.font = 'bold 24px Arial';
+    ctx.font = 'bold 32px Arial';
     ctx.fillText(`总计：${totalBeads} 颗`, startX, currentY);
-    currentY += 50;
+    currentY += 45;
+    ctx.fillText(`使用：${colorTypes} 种颜色`, startX, currentY);
+    currentY += 60;
     
-    // 绘制颜色列表（增大字体和间距）
+    // 绘制颜色列表（加大字体和间距）
     const sortedColors = statsInfo.colors;
-    const itemHeight = 42;
-    const swatchSize = 32;
-    const maxItems = Math.min(sortedColors.length, Math.floor((statsInfo.height - currentY + y) / itemHeight));
+    const swatchSize = 45; // 增大色块
     
-    sortedColors.slice(0, maxItems).forEach((item) => {
-        // 绘制色块（增大）
-        ctx.fillStyle = `rgb(${item.rgb[0]}, ${item.rgb[1]}, ${item.rgb[2]})`;
-        ctx.fillRect(startX, currentY, swatchSize, swatchSize);
-        ctx.strokeStyle = '#ddd';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(startX, currentY, swatchSize, swatchSize);
+    if (isLandscape) {
+        // 横图：横向排列
+        const itemWidth = 180; // 每个颜色项的宽度
+        const itemHeight = 70; // 每个颜色项的高度
+        const availableWidth = width - padding * 2;
+        const itemsPerRow = Math.max(1, Math.floor(availableWidth / itemWidth)); // 确保至少1列
+        const rowSpacing = 20; // 行间距
         
-        // 绘制色号（不显示品牌，增大字体）
-        ctx.fillStyle = '#333333';
-        ctx.font = 'bold 18px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(item.brandCode, startX + swatchSize + 12, currentY + 22);
+        let currentCol = 0;
+        let currentRow = 0;
+        let startY = currentY;
         
-        // 绘制数量（增大字体）
-        ctx.fillStyle = '#666666';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${item.count}颗`, startX + width - padding * 2, currentY + 22);
+        sortedColors.forEach((item, index) => {
+            if (currentCol >= itemsPerRow) {
+                currentCol = 0;
+                currentRow++;
+            }
+            
+            const itemX = startX + currentCol * itemWidth;
+            const itemY = startY + currentRow * (itemHeight + rowSpacing);
+            
+            // 绘制色块
+            ctx.fillStyle = `rgb(${item.rgb[0]}, ${item.rgb[1]}, ${item.rgb[2]})`;
+            ctx.fillRect(itemX, itemY, swatchSize, swatchSize);
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(itemX, itemY, swatchSize, swatchSize);
+            
+            // 绘制色号（加大字体）
+            ctx.fillStyle = '#333333';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(item.brandCode, itemX + swatchSize + 12, itemY + 20);
+            
+            // 绘制数量（加大字体）
+            ctx.fillStyle = '#666666';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${item.count}颗`, itemX + swatchSize + 12, itemY + 50);
+            
+            currentCol++;
+        });
+    } else {
+        // 竖图：纵向排列
+        const itemHeight = 55;
+        const maxItems = Math.min(sortedColors.length, Math.floor((statsInfo.height - currentY + y) / itemHeight));
         
-        currentY += itemHeight;
-    });
-    
-    // 如果颜色太多，显示省略提示（增大字体）
-    if (sortedColors.length > maxItems) {
-        ctx.fillStyle = '#999999';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(`...还有${sortedColors.length - maxItems}种颜色`, startX, currentY + 5);
+        sortedColors.slice(0, maxItems).forEach((item) => {
+            // 绘制色块（增大）
+            ctx.fillStyle = `rgb(${item.rgb[0]}, ${item.rgb[1]}, ${item.rgb[2]})`;
+            ctx.fillRect(startX, currentY, swatchSize, swatchSize);
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, currentY, swatchSize, swatchSize);
+            
+            // 绘制色号（不显示品牌，加大字体）
+            ctx.fillStyle = '#333333';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(item.brandCode, startX + swatchSize + 15, currentY + 28);
+            
+            // 绘制数量（加大字体）
+            ctx.fillStyle = '#666666';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${item.count}颗`, startX + width - padding * 2, currentY + 28);
+            
+            currentY += itemHeight;
+        });
+        
+        // 如果颜色太多，显示省略提示（加大字体）- 仅竖图需要
+        if (sortedColors.length > maxItems) {
+            ctx.fillStyle = '#999999';
+            ctx.font = '18px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`...还有${sortedColors.length - maxItems}种颜色`, startX, currentY + 10);
+        }
     }
 }
 
@@ -903,6 +1193,28 @@ resetBtn.addEventListener('click', () => {
     controlsSection.style.display = 'none';
     resultSection.style.display = 'none';
     colorStats = {};
+    // 显示信息部分
+    if (infoSection) {
+        infoSection.style.display = 'block';
+    }
+});
+
+// FAQ 折叠/展开功能
+document.querySelectorAll('.faq-question').forEach(question => {
+    question.addEventListener('click', () => {
+        const faqItem = question.closest('.faq-item');
+        const isActive = faqItem.classList.contains('active');
+        
+        // 关闭所有其他FAQ项
+        document.querySelectorAll('.faq-item').forEach(item => {
+            if (item !== faqItem) {
+                item.classList.remove('active');
+            }
+        });
+        
+        // 切换当前FAQ项
+        faqItem.classList.toggle('active', !isActive);
+    });
 });
 
 // 初始化

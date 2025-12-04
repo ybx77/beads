@@ -9,8 +9,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>🎨 拼豆色号生成器</h1>
-            <p class="subtitle">上传图片，自动生成拼豆图案和色号标识</p>
+            <h1>拼豆色号生成器</h1>
+            <p class="subtitle">将图片转换为拼豆图案，自动生成色号标识</p>
         </header>
 
         <main>
@@ -18,22 +18,22 @@
                 <div class="upload-area" id="uploadArea">
                     <input type="file" id="fileInput" accept="image/*" hidden>
                     <div class="upload-content">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <p>点击或拖拽图片到这里上传</p>
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </div>
+                        <p class="upload-text">点击或拖拽图片到这里上传</p>
                         <span class="upload-hint">支持 JPG、PNG、GIF 格式</span>
                     </div>
                 </div>
             </div>
 
             <div class="config-section" id="configSection" style="display: none;">
-                <h2>配置选项</h2>
-                
                 <div class="config-group">
-                    <label class="config-label">选择品牌：</label>
+                    <label class="config-label">品牌</label>
                     <div class="brand-selector">
                         <label class="brand-option">
                             <input type="radio" name="brand" value="MARD" checked>
@@ -59,7 +59,7 @@
                 </div>
 
                 <div class="config-group">
-                    <label class="config-label">基础色号表：</label>
+                    <label class="config-label">基础色号表（221色）</label>
                     <div class="table-selector">
                         <label class="table-option">
                             <input type="checkbox" name="baseTable" value="A" checked>
@@ -101,7 +101,7 @@
                 </div>
 
                 <div class="config-group">
-                    <label class="config-label">高级色号选项：</label>
+                    <label class="config-label">高级色号选项</label>
                     <div class="table-selector">
                         <label class="table-option">
                             <input type="checkbox" name="advancedTable" value="P">
@@ -132,26 +132,43 @@
             </div>
 
             <div class="controls-section" id="controlsSection" style="display: none;">
-                <div class="control-group">
-                    <label for="gridSize">网格大小：</label>
-                    <input type="range" id="gridSize" min="1" max="50" value="10">
-                    <span id="gridSizeValue">10</span>
-                </div>
-                <div class="control-group">
-                    <label for="showNumbers">显示色号：</label>
-                    <input type="checkbox" id="showNumbers" checked>
-                </div>
-                <div class="control-group">
-                    <label for="showGrid">显示网格：</label>
-                    <input type="checkbox" id="showGrid" checked>
-                </div>
-                <div class="control-group">
-                    <label for="bigGrid">大网格(放止看花眼)：</label>
-                    <select id="bigGrid">
-                        <option value="none">不显示</option>
-                        <option value="5">5x5</option>
-                        <option value="10">10x10</option>
-                    </select>
+                <div class="controls-grid">
+                    <div class="control-item">
+                        <label for="gridSize">网格大小</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="gridSize" min="1" max="50" value="10">
+                            <span class="slider-value" id="gridSizeValue">10</span>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <label for="colorMerge">颜色合并</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="colorMerge" min="0" max="100" value="0" step="1">
+                            <span class="slider-value" id="colorMergeValue">0</span>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <label for="showNumbers">显示色号</label>
+                        <label class="switch">
+                            <input type="checkbox" id="showNumbers" checked>
+                            <span class="slider-switch"></span>
+                        </label>
+                    </div>
+                    <div class="control-item">
+                        <label for="showGrid">显示网格</label>
+                        <label class="switch">
+                            <input type="checkbox" id="showGrid" checked>
+                            <span class="slider-switch"></span>
+                        </label>
+                    </div>
+                    <div class="control-item">
+                        <label for="bigGrid">大网格</label>
+                        <select id="bigGrid">
+                            <option value="none">不显示</option>
+                            <option value="5">5x5</option>
+                            <option value="10">10x10</option>
+                        </select>
+                    </div>
                 </div>
                 <button class="btn btn-primary" id="processBtn">生成拼豆图案</button>
             </div>
@@ -181,6 +198,182 @@
                 <div class="action-buttons">
                     <button class="btn btn-download" id="downloadBtn">下载图案</button>
                     <button class="btn btn-secondary" id="resetBtn">重新开始</button>
+                </div>
+            </div>
+
+            <!-- 功能介绍和使用方法 -->
+            <div class="info-section" id="infoSection">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <div class="info-icon">🎨</div>
+                            <h3>功能介绍</h3>
+                        </div>
+                        <div class="info-card-content">
+                            <div class="feature-item">
+                                <span class="feature-label">智能颜色匹配</span>
+                                <span class="feature-desc">自动将图片中的颜色匹配到最接近的拼豆色号</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">多品牌支持</span>
+                                <span class="feature-desc">支持 MARD、COCO、漫漫、盼盼、咪小窝 等多个品牌</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">丰富色号库</span>
+                                <span class="feature-desc">包含基础色号表（A-H、M）和高级色号表（珠光、温变、透明、夜光、光变等）</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">网格化处理</span>
+                                <span class="feature-desc">可自定义网格大小，将图片转换为拼豆网格图案</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">色号标注</span>
+                                <span class="feature-desc">每个网格自动标注对应的品牌色号，方便制作</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">颜色统计</span>
+                                <span class="feature-desc">自动统计每种颜色需要的豆子数量</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">高分辨率下载</span>
+                                <span class="feature-desc">支持下载高清拼豆图案，包含完整色号信息</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-label">颜色合并优化</span>
+                                <span class="feature-desc">支持精细化调节颜色合并阈值，减少颜色种类</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <div class="info-icon">📖</div>
+                            <h3>使用方法</h3>
+                        </div>
+                        <div class="info-card-content">
+                            <div class="step-item">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <strong>上传图片</strong>
+                                    <p>点击或拖拽图片到上传区域，支持 JPG、PNG、GIF 格式</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <strong>选择品牌</strong>
+                                    <p>根据您使用的拼豆品牌选择对应的品牌选项</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <strong>选择色号表</strong>
+                                    <p>基础色号表包含常用颜色（A-H、M），高级色号表包含特殊效果颜色（珠光、温变、透明、夜光、光变等）</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-number">4</div>
+                                <div class="step-content">
+                                    <strong>调整参数</strong>
+                                    <p>设置网格大小、颜色合并阈值、显示选项等参数</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-number">5</div>
+                                <div class="step-content">
+                                    <strong>生成图案</strong>
+                                    <p>点击"生成拼豆图案"按钮，等待处理完成</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-number">6</div>
+                                <div class="step-content">
+                                    <strong>查看结果</strong>
+                                    <p>查看生成的拼豆图案和颜色统计信息</p>
+                                </div>
+                            </div>
+                            <div class="step-item">
+                                <div class="step-number">7</div>
+                                <div class="step-content">
+                                    <strong>下载图案</strong>
+                                    <p>点击"下载图案"按钮，下载包含完整信息的拼豆图案</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="faq-section">
+                    <h3 class="faq-title">常见问题</h3>
+                    <div class="faq-list">
+                        <div class="faq-item">
+                            <button class="faq-question" type="button">
+                                <span>为什么生成的图案颜色和原图不太一样？</span>
+                                <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="faq-answer">
+                                <p>拼豆颜色有限，系统会自动匹配最接近的拼豆颜色。您可以通过调整"颜色合并"滑块来优化颜色匹配效果。</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <button class="faq-question" type="button">
+                                <span>网格大小应该设置多少？</span>
+                                <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="faq-answer">
+                                <p>网格大小取决于您想要的精细程度。数值越小（如 5-10），图案越精细但网格越多；数值越大（如 20-30），图案越简单但网格越少。建议根据图片复杂程度和制作难度来选择。</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <button class="faq-question" type="button">
+                                <span>颜色合并功能有什么用？</span>
+                                <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="faq-answer">
+                                <p>颜色合并功能可以将相似的颜色合并为同一种颜色，从而减少使用的颜色种类，降低制作难度和成本。数值越大，合并的颜色越多。</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <button class="faq-question" type="button">
+                                <span>如何选择合适的色号表？</span>
+                                <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="faq-answer">
+                                <p>建议先选择基础色号表，如果基础颜色不够用，再添加高级色号表。注意：选择过多色号表可能会增加处理时间。</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <button class="faq-question" type="button">
+                                <span>下载的图片可以打印吗？</span>
+                                <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="faq-answer">
+                                <p>可以。下载的图片是高分辨率图片，包含完整的色号标注和颜色统计信息，适合打印和制作参考。</p>
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <button class="faq-question" type="button">
+                                <span>支持哪些图片格式？</span>
+                                <svg class="faq-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <div class="faq-answer">
+                                <p>支持 JPG、PNG、GIF 等常见图片格式。建议使用清晰、对比度高的图片以获得更好的效果。</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
