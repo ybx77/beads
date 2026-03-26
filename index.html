@@ -141,6 +141,27 @@
                         </div>
                     </div>
                     <div class="control-item">
+                        <label for="gridCols">横向网格数</label>
+                        <div class="number-input-wrapper">
+                            <input type="number" id="gridCols" min="1" max="999" step="1" value="0">
+                            <span class="unit">格</span>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <label for="gridRows">纵向网格数</label>
+                        <div class="number-input-wrapper">
+                            <input type="number" id="gridRows" min="1" max="999" step="1" value="0">
+                            <span class="unit">格</span>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <label for="keepAspectRatio">保持图片比例</label>
+                        <label class="switch">
+                            <input type="checkbox" id="keepAspectRatio" checked>
+                            <span class="slider-switch"></span>
+                        </label>
+                    </div>
+                    <div class="control-item">
                         <label for="colorMerge">颜色合并</label>
                         <div class="slider-wrapper">
                             <input type="range" id="colorMerge" min="0" max="100" value="0" step="1">
@@ -171,6 +192,17 @@
                     </div>
                 </div>
                 <button class="btn btn-primary" id="processBtn">生成拼豆图案</button>
+            </div>
+
+            <!-- 生成进度提示 -->
+            <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                <div class="loading-card">
+                    <div class="loading-title">正在生成拼豆图案…</div>
+                    <div class="progress-bar" aria-hidden="true">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="loading-text" id="progressText">0%</div>
+                </div>
             </div>
 
             <div class="result-section" id="resultSection" style="display: none;">

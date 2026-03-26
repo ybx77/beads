@@ -12,6 +12,9 @@ const controlsSection = document.getElementById('controlsSection');
 const resultSection = document.getElementById('resultSection');
 const gridSizeSlider = document.getElementById('gridSize');
 const gridSizeValue = document.getElementById('gridSizeValue');
+const gridColsInput = document.getElementById('gridCols');
+const gridRowsInput = document.getElementById('gridRows');
+const keepAspectRatioCheckbox = document.getElementById('keepAspectRatio');
 const colorMergeSlider = document.getElementById('colorMerge');
 const colorMergeValue = document.getElementById('colorMergeValue');
 const showNumbersCheckbox = document.getElementById('showNumbers');
@@ -25,8 +28,103 @@ const colorList = document.getElementById('colorList');
 const totalCount = document.getElementById('totalCount');
 const downloadBtn = document.getElementById('downloadBtn');
 const resetBtn = document.getElementById('resetBtn');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
 let resultCanvasData = null; // 保存原始canvas数据用于下载
 let highResCanvas = null; // 高分辨率canvas用于下载
+
+// 网格尺寸/网格数量联动所需的状态
+let fitWidth = 0; // 上传图片缩放到 maxSize 后的“可用宽度”
+let fitHeight = 0; // 上传图片缩放到 maxSize 后的“可用高度”
+let gridMode = 'size'; // 'size' | 'count'：最后一次操控来自哪里
+let lastEditedGridDim = 'cols'; // keepAspectRatio=true 时，用来决定谁是“主动输入”
+let isGridSyncing = false;
+
+function showLoading(show) {
+    if (!loadingOverlay) return;
+    loadingOverlay.style.display = show ? 'flex' : 'none';
+}
+
+function setProgress(pct, text) {
+    if (typeof pct === 'number' && progressFill) {
+        const safePct = Math.max(0, Math.min(100, Math.round(pct)));
+        progressFill.style.width = `${safePct}%`;
+        if (progressText) progressText.textContent = text ? `${text}（${safePct}%）` : `${safePct}%`;
+    } else if (progressText && text) {
+        progressText.textContent = text;
+    }
+}
+
+function clampInt(value, min, max) {
+    const v = Number.parseInt(value, 10);
+    if (Number.isNaN(v)) return min;
+    return Math.min(max, Math.max(min, v));
+}
+
+function computeFitSize(img) {
+    // 与 processImage 中的缩放逻辑保持一致：尽量不放大图片
+    const maxSize = 800;
+    let width = img.width;
+    let height = img.height;
+
+    if (width > maxSize || height > maxSize) {
+        const ratio = Math.min(maxSize / width, maxSize / height);
+        width = Math.floor(width * ratio);
+        height = Math.floor(height * ratio);
+    }
+
+    return { width, height };
+}
+
+function updateCountsFromGridSize() {
+    if (fitWidth <= 0 || fitHeight <= 0) return;
+    const cellSize = clampInt(gridSizeSlider.value, parseInt(gridSizeSlider.min), parseInt(gridSizeSlider.max));
+    const alignedWidth = Math.floor(fitWidth / cellSize) * cellSize;
+    const alignedHeight = Math.floor(fitHeight / cellSize) * cellSize;
+    const cols = Math.max(1, Math.floor(alignedWidth / cellSize));
+    const rows = Math.max(1, Math.floor(alignedHeight / cellSize));
+
+    isGridSyncing = true;
+    gridColsInput.value = cols;
+    gridRowsInput.value = rows;
+    isGridSyncing = false;
+}
+
+function updateGridSizeFromCounts() {
+    if (fitWidth <= 0 || fitHeight <= 0) return;
+
+    const minCellSize = parseInt(gridSizeSlider.min, 10);
+    const maxCellSize = parseInt(gridSizeSlider.max, 10);
+
+    let cols = clampInt(gridColsInput.value, 1, Math.floor(fitWidth));
+    let rows = clampInt(gridRowsInput.value, 1, Math.floor(fitHeight));
+
+    // 需要保持比例时：用最后一次编辑的维度推回另一维
+    if (keepAspectRatioCheckbox.checked) {
+        const aspect = fitWidth / fitHeight; // output 中 cols/rows 应尽量等于原图比例
+        if (lastEditedGridDim === 'cols') {
+            rows = Math.max(1, Math.round(cols / aspect));
+        } else {
+            cols = Math.max(1, Math.round(rows * aspect));
+        }
+    }
+
+    // 再次 clamp，避免 rows/cols 推回后超过可用范围
+    cols = clampInt(cols, 1, Math.floor(fitWidth));
+    rows = clampInt(rows, 1, Math.floor(fitHeight));
+
+    // 联动回“网格大小 slider”：保证按 counts 模式时，cols/rows 精确命中
+    const computedCellSize = Math.floor(Math.min(fitWidth / cols, fitHeight / rows));
+    const nextCellSize = clampInt(computedCellSize, minCellSize, maxCellSize);
+
+    isGridSyncing = true;
+    gridColsInput.value = cols;
+    gridRowsInput.value = rows;
+    gridSizeSlider.value = nextCellSize;
+    gridSizeValue.textContent = String(nextCellSize);
+    isGridSyncing = false;
+}
 
 // 加载颜色数据
 async function loadColorData() {
@@ -260,6 +358,29 @@ function handleFile(file) {
             configSection.style.display = 'block';
             controlsSection.style.display = 'block';
             resultSection.style.display = 'none';
+
+            // 记录上传图片缩放到“可用区域”后的尺寸，用于网格联动计算
+            const fit = computeFitSize(img);
+            fitWidth = fit.width;
+            fitHeight = fit.height;
+
+            // 根据可用尺寸动态限制输入范围（避免算出 0 的网格大小）
+            gridColsInput.min = '1';
+            gridRowsInput.min = '1';
+            gridColsInput.max = String(Math.max(1, Math.floor(fitWidth)));
+            gridRowsInput.max = String(Math.max(1, Math.floor(fitHeight)));
+
+            // 防止 gridSize 大于图片可用尺寸导致宽/高对齐后为 0
+            const defaultMaxCellSize = parseInt(gridSizeSlider.max, 10);
+            const maxCellByFit = Math.max(1, Math.min(defaultMaxCellSize, fitWidth, fitHeight));
+            gridSizeSlider.max = String(maxCellByFit);
+            gridSizeSlider.value = String(Math.min(parseInt(gridSizeSlider.value, 10), maxCellByFit));
+
+            // 默认按 gridSize（slider）推导 cols/rows
+            gridMode = 'size';
+            lastEditedGridDim = 'cols';
+            gridSizeValue.textContent = String(gridSizeSlider.value);
+            updateCountsFromGridSize();
             // 隐藏信息部分
             if (infoSection) {
                 infoSection.style.display = 'none';
@@ -308,7 +429,36 @@ setTimeout(() => {
 
 // 网格大小滑块事件
 gridSizeSlider.addEventListener('input', (e) => {
-    gridSizeValue.textContent = e.target.value;
+    if (isGridSyncing) return;
+    gridMode = 'size';
+    const nextSize = clampInt(e.target.value, parseInt(gridSizeSlider.min, 10), parseInt(gridSizeSlider.max, 10));
+    gridSizeSlider.value = nextSize;
+    gridSizeValue.textContent = String(nextSize);
+    updateCountsFromGridSize();
+});
+
+// 横向/纵向网格数输入事件（与 gridSize slider 双向联动）
+gridColsInput.addEventListener('input', (e) => {
+    if (isGridSyncing) return;
+    gridMode = 'count';
+    lastEditedGridDim = 'cols';
+    updateGridSizeFromCounts();
+});
+
+gridRowsInput.addEventListener('input', (e) => {
+    if (isGridSyncing) return;
+    gridMode = 'count';
+    lastEditedGridDim = 'rows';
+    updateGridSizeFromCounts();
+});
+
+keepAspectRatioCheckbox.addEventListener('change', () => {
+    if (isGridSyncing) return;
+    if (gridMode === 'count') {
+        updateGridSizeFromCounts();
+    } else {
+        updateCountsFromGridSize();
+    }
 });
 
 // 颜色合并滑块事件
@@ -317,7 +467,7 @@ colorMergeSlider.addEventListener('input', (e) => {
 });
 
 // 处理按钮点击事件
-processBtn.addEventListener('click', () => {
+processBtn.addEventListener('click', async () => {
     if (!uploadedImage) return;
     
     // 检查是否至少选择了一个基础色号表
@@ -335,25 +485,81 @@ processBtn.addEventListener('click', () => {
         return;
     }
     
-    const gridSize = parseInt(gridSizeSlider.value);
+    const gridSize = parseInt(gridSizeSlider.value, 10);
     const colorMerge = parseInt(colorMergeSlider.value);
     const showNumbers = showNumbersCheckbox.checked;
     const showGrid = showGridCheckbox.checked;
     const bigGrid = bigGridSelect.value;
     
-    processImage(uploadedImage, gridSize, colorMerge, showNumbers, showGrid, bigGrid);
-    resultSection.style.display = 'block';
+    const targetCols = parseInt(gridColsInput.value, 10);
+    const targetRows = parseInt(gridRowsInput.value, 10);
+
+    processBtn.disabled = true;
+    if (downloadBtn) downloadBtn.disabled = true;
+    if (resetBtn) resetBtn.disabled = true;
+    showLoading(true);
+    setProgress(0, '准备中');
+
+    try {
+        await processImage(
+            uploadedImage,
+            gridSize,
+            colorMerge,
+            showNumbers,
+            showGrid,
+            bigGrid,
+            gridMode,
+            targetCols,
+            targetRows
+        );
+        resultSection.style.display = 'block';
+        setProgress(100, '完成');
+    } catch (error) {
+        console.error('生成失败:', error);
+        alert('生成失败，请稍后重试或减小网格大小。');
+        resultSection.style.display = 'none';
+    } finally {
+        showLoading(false);
+        processBtn.disabled = false;
+        if (downloadBtn) downloadBtn.disabled = false;
+        if (resetBtn) resetBtn.disabled = false;
+    }
 });
 
 // 处理图片
-function processImage(img, gridSize, colorMerge, showNumbers, showGrid, bigGrid = 'none') {
+async function processImage(
+    img,
+    gridSize,
+    colorMerge,
+    showNumbers,
+    showGrid,
+    bigGrid = 'none',
+    mode = 'size',
+    targetCols = 0,
+    targetRows = 0
+) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+
+    // 避免长时间阻塞渲染：在耗时循环中定期“让出”给 UI 线程更新进度条
+    let lastUiYieldAt = 0;
+    async function maybeYield() {
+        const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (now - lastUiYieldAt < 40) return;
+        lastUiYieldAt = now;
+
+        if (typeof requestAnimationFrame === 'function') {
+            await new Promise(resolve => requestAnimationFrame(() => resolve()));
+        } else {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
     
     // 计算画布大小（保持宽高比）
     const maxSize = 800;
     let width = img.width;
     let height = img.height;
+    gridSize = Math.max(1, parseInt(gridSize, 10));
     
     if (width > maxSize || height > maxSize) {
         const ratio = Math.min(maxSize / width, maxSize / height);
@@ -361,9 +567,22 @@ function processImage(img, gridSize, colorMerge, showNumbers, showGrid, bigGrid 
         height = Math.floor(height * ratio);
     }
     
-    // 调整到网格大小
-    width = Math.floor(width / gridSize) * gridSize;
-    height = Math.floor(height / gridSize) * gridSize;
+    // 根据模式决定如何生成网格
+    if (mode === 'count' && targetCols > 0 && targetRows > 0) {
+        const cols = Math.max(1, Math.floor(targetCols));
+        const rows = Math.max(1, Math.floor(targetRows));
+
+        // 让单格大小尽量“落在”可用区域内，从而保证生成出的行列数命中用户输入
+        const sliderMaxCellSize = gridSizeSlider ? parseInt(gridSizeSlider.max, 10) : 50;
+        gridSize = Math.max(1, Math.floor(Math.min(width / cols, height / rows)));
+        gridSize = Math.min(gridSize, sliderMaxCellSize);
+        width = cols * gridSize;
+        height = rows * gridSize;
+    } else {
+        // size 模式：按 gridSize 对齐（与旧逻辑保持一致）
+        width = Math.floor(width / gridSize) * gridSize;
+        height = Math.floor(height / gridSize) * gridSize;
+    }
     
     canvas.width = width;
     canvas.height = height;
@@ -396,6 +615,7 @@ function processImage(img, gridSize, colorMerge, showNumbers, showGrid, bigGrid 
     
     // 先收集所有网格的原始RGB颜色
     const gridColors = [];
+    setProgress(20, '计算网格颜色中');
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             // 计算网格区域的平均颜色
@@ -424,6 +644,9 @@ function processImage(img, gridSize, colorMerge, showNumbers, showGrid, bigGrid 
                 beadColor: beadColor
             });
         }
+        const pct = 20 + ((row + 1) / Math.max(1, rows)) * 60;
+        setProgress(pct, '计算网格颜色中');
+        await maybeYield();
     }
     
     // 原图不再显示，但保留canvas用于内部处理（如果需要）
@@ -611,6 +834,9 @@ function processImage(img, gridSize, colorMerge, showNumbers, showGrid, bigGrid 
                 );
             }
         }
+        const drawPct = 80 + ((row + 1) / Math.max(1, rows)) * 20;
+        setProgress(drawPct, '绘制图案中');
+        await maybeYield();
     }
     
     // 绘制大网格（5x5或10x10）
@@ -1193,6 +1419,18 @@ resetBtn.addEventListener('click', () => {
     controlsSection.style.display = 'none';
     resultSection.style.display = 'none';
     colorStats = {};
+    fitWidth = 0;
+    fitHeight = 0;
+    gridMode = 'size';
+    lastEditedGridDim = 'cols';
+    isGridSyncing = false;
+    gridColsInput.value = '0';
+    gridRowsInput.value = '0';
+
+    // 还原网格大小 slider 默认值
+    gridSizeSlider.max = '50';
+    gridSizeSlider.value = '10';
+    gridSizeValue.textContent = '10';
     // 显示信息部分
     if (infoSection) {
         infoSection.style.display = 'block';
